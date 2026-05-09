@@ -1,0 +1,89 @@
+spring:
+  application:
+    name: asyncflow-backend
+
+  r2dbc:
+    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:asyncflow}
+    username: ${DB_USER:asyncflow}
+    password: ${DB_PASSWORD:asyncflow}
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: asyncflow-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.asyncflow.*"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/asyncflow}
+
+langchain4j:
+  open-ai:
+    api-key: ${OPENAI_API_KEY:demo}
+    model-name: gpt-4o-mini
+    temperature: 0.3
+    max-tokens: 512
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      ai-processor:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        wait-duration-in-open-state: 30s
+        failure-rate-threshold: 50
+  retry:
+    instances:
+      ai-processor:
+        max-attempts: 3
+        wait-duration: 1s
+
+asyncflow:
+  kafka:
+    topics:
+      task-created: asyncflow.task.created
+      task-updated: asyncflow.task.updated
+      task-completed: asyncflow.task.completed
+      retry-scheduled: asyncflow.retry.scheduled
+  tenant:
+    header: X-Tenant-ID
+  ai:
+    retry-prediction-enabled: true
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.asyncflow: DEBUG
+    org.springframework.kafka: INFO
